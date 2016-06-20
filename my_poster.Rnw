@@ -63,12 +63,14 @@
 \begin{document}
 
 <<knitrIntro, echo = FALSE, message=FALSE,warning=FALSE>>=
-source("my_ggplot_theme.R")
-
 library(dplyr)
 library(reshape2)
 library(xtable)
 library(biogram)
+library(latex2exp)
+
+source("my_ggplot_theme.R")
+source("xtable_printbold.R")
 
 @
 
@@ -95,7 +97,7 @@ library(biogram)
 {
 \begin{block}{Aim}
 
-Create a tool to standardize analysis of n-grams extracted from biological sequences in the \textbf{R} environment.
+Create an integrated workflow to standardize analysis of n-grams extracted from biological sequences in the \textbf{R} environment covering all stages of n-gram analysis, from counting n-grams through selection of informative n-grams till preparation of n-gram datasets for machine learning algorithms.
 
 \end{block}
 
@@ -103,7 +105,7 @@ Create a tool to standardize analysis of n-grams extracted from biological seque
 n-grams (k-tuples) are vectors of n characters derived from input sequence(s). They may form continuous sub-sequences or be discontinuous. 
 Important n-gram parameter is its position. Instead of just counting n-grams, one may want to count how many n-grams occur at a given position in multiple (e.g. related) sequences.
 
-Originally developed for natural language processing, n-grams are also used in genomics~\citep{fang2011}, transcriptomics~\citep{wang2014} and proteomics~\citep{guo2014}.
+Originally developed for natural language processing, n-grams are also used in genomics~\citep{fang2011} and proteomics~\citep{guo2014}.
 
 
 \small{
@@ -155,17 +157,36 @@ print(xtable(unis, caption = "A fraction of possible unigrams with position info
     \end{block}
 
  \begin{block}{n-gram name convention}
-    n-gram names follow a specific convention and have three parts for position-specific n-grams and two parts otherwise. The parts are separated by _. The . symbol is used to separate elements within a part.
+    n-gram names in \textbf{biogram} follow a specific convention and have three parts for position-specific n-grams and two parts otherwise. The parts are separated by underscore (\_). The dot (.) symbol is used to separate elements within a part.
+      
+\begin{figure} 
+\includegraphics[width=0.63\columnwidth]{static_figure/name_convention.eps}
+\end{figure}      
+      
+\begin{itemize}
+
+\item \texttt{46\_G.G.A\_0.1}: trigram GG-A on position 46
+
+\item \texttt{8\_W.Y\_2}: bigram W-{}-Y on position 8.
+
+\item \texttt{A.C\_2}: bigram A-{}-C without position information
+
+\end{itemize}
+      
+    \end{block}
+    \vfill
+
+\begin{block}{Sparse matrix representation}
+    Large n-gram datasets are difficult to process in \textbf{R}. We use \textbf{slam} package to store n-gram data instead of more cumbersome matrix representation. All functions in the package have specific methods to work both with matrices and \textbf{slam} objects.
       
     \end{block}
     \vfill
 
 
-
- \begin{block}{Feature selecting permutation tests}
-    Model and statistic independent permutation tests can be used to filter features obtained through counting n-grams.
-    
-    During a permutation test class labels are randomly exchanged during computation of a significance statistic. p-values are defined as:
+ \begin{block}{QuiPT}
+ Since the majority of n-grams is noninformative, it is necessary to filter them usually with a permutation test. We introduce \textbf{Qui}ck \textbf{P}ermutation \textbf{T}est (QuiPT), which thanks to the unique parameterization replaces a permutation test with the exact two-sided Fisher's test~\citep{lehmann1986testing} reducing the computation cost. 
+ 
+  During a typical permutation test class labels are randomly exchanged during computation of a significance statistic. p-values are defined as:
     
 \begin{center}
 \scalebox{0.85}{
@@ -178,62 +199,20 @@ $
 where $N_{T_P > T_R}$ is number of times when $T_P$ (permuted test statistic) was more extreme than $T_R$ (test statistic for non-permuted data).
 
 Permutation tests are computationally expensive (especially considering precise estimation of small p-values, because the number of permutations is inversely proportional to the interval between p-values).
+
+On the contrary, the cost of performing QuiPT is equal to computing a test statistic and 
+probability of occurrence for $n_{1,1} + n_{0,1}$ contingency tables.
       
     \end{block}
     \vfill
-    
-    
-\begin{block}{QuiPT concept}
 
-In each permutation, for every observation, there are four possible results:
-
-\begin{center}
-\scalebox{0.85}{
-$P(Target, Feature) = (1,1)) = p \cdot q$
-}
-\end{center}
-
-\\
-
-\begin{center}
-\scalebox{0.85}{
-$P(Target, Feature) = (1,0)) = p \cdot (1-q)$
-}
-\end{center}
-
-\\
-
-\begin{center}
-\scalebox{0.85}{
-$P(Target, Feature) = (0,1)) = (1-p) \cdot q$
-}
-\end{center}
-
-\\
-
-\begin{center}
-\scalebox{0.85}{
-$P(Target, Feature) = (0,0)) = (1-p) \cdot (1-q)$
-}
-\end{center}
-
-\\
-
-Where $p$ and $q$ are fractions of positive observations in target and
-feature respectively. An another view at permutation test is therefore that we 
-get a contingency table, which is to be tested for independence.
-Computing probability of a such table with two constraints, $n_{1,\cdot} = n_{1,1} + n_{1,0}$ and
-$n_{\cdot, 1} = n_{1,1} + n_{0,1}$, and 
-conditioning on $n_{1,1}$, leads to hypergeometric distribution.
-$n_{i,j}$ denotes number of observations for which 
-\scalebox{0.85}{$(Target, Feature) = (i,j)$}
-
-This is in fact exact two-sided Fisher's test~\citep{lehmann1986testing}. 
-%Information Gain is a way of deciding how strong is the evidence against independance.
-
-\end{block}
-\vfill 
-
+ \begin{block}{Bibliography}
+  \tiny{
+  \bibliographystyle{apalike}
+  \bibliography{references}
+  }
+  \end{block}
+  \vfill  
 
 
 }
@@ -251,159 +230,140 @@ This is in fact exact two-sided Fisher's test~\citep{lehmann1986testing}.
 {
 
 
-\begin{block}{Computational cost}
+\begin{block}{Reduction of the alphabet and encoding distance}
 
-The cost of performing QuiPT is equal to computing a test statistic and 
-probability of occurrence for $n_{1,1} + n_{0,1}$ contingency tables.
+To reduce number of n-grams and get more informative features, the alphabet (mostly amino acid, rarely nucleic) can be reduced using various clustering methods.
 
-Suppose we consider 6-grams build on sequences of length 25 build of four 
-characters. Then there are around 100,000 n-grams (features) to test. 
-This means that for Benjamini-Hochberg procedure, we need to calculate 
-p-values with accuracy of $0.05 \times 10^{-5}$. This requires at least 
-2 million permutations. Each permutation, apart from reshuffling labels, 
-requires computation of a test statistic. Since n-gram features are very sparse vectors, QuiPT needs to evaluate only few contingency tables.
+<<echo = FALSE,message=FALSE,results='asis'>>=
+    
+a <- list(`1` = "p", 
+          `2` = c("f", "i", "w", "y"), 
+          `3` = c("a", "c", "d", "e", "g", "h", "k", "l", "m", "n", "q", "r", "s", "t", "v"))
 
-The relative difference in speed between QuiPT and normal permutation tests depends on several factors, as a number of permutations and input data. For example, for simulation scheme presented below, QuiPT was on average 93 times faster than normal permutation test with $10^5$ permutations.
+
+b <- list(`1` = c("f", "r", "w", "y"), 
+          `2` = c("c", "i", "l", "t", "v"), 
+          `3` = c("a", "d", "e", "g", "h", "k", "m", "n", "p", "q", "s"))
+
+enc2df <- function(x)
+  data.frame(Names = names(x), Elements = toupper(sapply(x, paste0, collapse = ", ")))
+
+print(xtable(enc2df(a), caption = "Sample encoding \\textbf{a}.", digits = 0),
+      booktabs = TRUE, add.to.row = list(pos = as.list(rws), command = col), include.rownames = FALSE)
+
+print(xtable(enc2df(b), caption = "Sample encoding \\textbf{b}.", digits = 0),
+      booktabs = TRUE, add.to.row = list(pos = as.list(rws), command = col), include.rownames = FALSE)
+
+@
+
+\end{block}
+\vfill
+
+\begin{block}{Encoding distance}
+
+The encoding distance is defined as the minimum number of elements that have to be moved between subgroups of encoding to make \textbf{a} identical to \textbf{b} (the order of subgroups in the encoding and elements in a group is unimportant). This measure may be further normalized by a factor $s_{ab}$ reflecting how much moving amino acids between groups altered mean group properties. 
+
+\bigskip
+
+In case of the examplary encodings \textbf{a} and \textbf{b} the encoding distance is equal to 7.
+
+\end{block}
+\vfill
+
+\begin{block}{Normalization of encoding distance}
+
+To compute the scale factor $s$ for the encoding distance between the encoding 
+\textit{a} with $n$ subgroups (enumerated with $i$) and the encoding \textit{b} 
+with $m$ subgroups (enumerated with $j$), we first calculated $p_i$ and $q_j$, 
+i.e. the mean values of corresponding physicochemical properties of all amino acids for each 
+subgroup. 
+
+The factor $s$ between encodings $a$ and $b$ is equal to: 
+
+$$ 
+s_{ab} = \sum^n_{i = 1}  \left( \min_{j=1,\dots,m} \; \; \sum^L_{l=1} \sqrt{ 
+(p_{i,l} - q_{j,l})^2} \right) 
+$$
+
+where $L$ is the number of considered physicochemical properties. Hence, the 
+normalizing factor may be interpreted as the minimum change of the mean 
+physicochemical properties between groups.
+
+<<echo = FALSE,message=FALSE,results='asis',fig.width=14>>=
+    
+data(aaprop)
+a_prop <- aaprop[c(22, 211), ]
+
+#b_prop <- aa_nprop[na.omit(traits_table[ao, ]), , drop = FALSE]
+
+# must have unified lists of features
+
+coords_a <- lapply(a, function(single_subgroup) rowMeans(a_prop[, single_subgroup, drop = FALSE]))
+coords_b <- lapply(b, function(single_subgroup) rowMeans(a_prop[, single_subgroup, drop = FALSE]))
+
+dat_a <- data.frame(enc = "a", do.call(rbind, coords_a), label = paste0("A", 1L:3))
+dat_b <- data.frame(enc = "b", do.call(rbind, coords_b), label = paste0("B", 1L:3))
+
+dat <- data.frame(do.call(rbind, lapply(1L:nrow(dat_a), function(id) 
+  data.frame(id = id, rbind(do.call(rbind, lapply(1L:3, function(dummy) 
+    dat_a[id, , drop = FALSE])),
+    dat_b)))), pair = c(paste0("d", 1L:3), paste0("d", 1L:3)))
+
+colnames(dat) <- c("id", "enc", "f1", "f2", "label", "pair")
+dat[["id"]] <- paste0("Encoding a\nsubgroup ", dat[["id"]])
+
+ggplot(dat, aes(x = f1, y = f2, colour = pair, label = label)) +
+  geom_line() +
+  geom_point(aes(x = f1, y = f2, colour = enc), size = 4) + 
+  facet_wrap(~ id) + 
+  geom_text(aes(x = f1, y = f2, colour = enc, label = label), vjust = 2, size = 6) + 
+  scale_color_brewer(palette="Dark2", guide = "none") +
+  scale_x_continuous(TeX("p_1")) + 
+  scale_x_continuous(TeX("p_2")) +
+  coord_cartesian(ylim = c(0.05, 0.9)) +
+  my_theme
+
+@
+
+
+<<echo = FALSE,message=FALSE,results='asis'>>=
+
+tmp <- sapply(coords_a, function(single_coords_a) {
+  distances <- sapply(coords_b, function(single_coords_b) 
+    #vector of distances between groups
+    sqrt(sum((single_coords_a - single_coords_b)^2))
+  )
+  #c(dist = min(distances), id = unname(which.min(distances)))
+  distances
+})
+
+colnames(tmp) <- paste0("Enc \\textbf{a}, group ", colnames(tmp))
+rownames(tmp) <- paste0("Enc \\textbf{b}, group ", rownames(tmp))
+
+printbold(xtable(tmp, digits = 4), 
+      include.rownames = TRUE, booktabs = TRUE, add.to.row = list(pos = as.list(rws), command = col),
+      sanitize.colnames.function = identity, sanitize.rownames.function = identity)
+
+@
+
+On the example above, the $s_{ab}$ is equal to the sum of $0.1219, 0.1787$ and $0.1559$.
 
 \end{block}
 \vfill 
 
 
-\begin{block}{Distribution of Information Gain for given contingency table}
-
-\begin{columns}
-\column{.04\textwidth}
-\column{.35\textwidth}
-\centering
-Given constraint on $n_{1,1} + n_{0,1}$, probability distribution on
-contingency tables, which permutations might produce, 
-can be computed exactly.
-\column{.65\textwidth}
-\scalebox{0.79}{
-  <<echo = FALSE,message=FALSE,fig.align='center',fig.width=13,fig.height=11>>=
-  target_feature <- create_feature_target(40, 10, 25, 40)
-  xyTable <- table(target_feature[, 1], target_feature[, 2])
-  colnames(xyTable) <- c("Positive\nTarget", "Negative\nTarget")
-  rownames(xyTable) <- c("Positive\nFeature", "Negative\nFeature")
-  tmp <- distr_crit(target = target_feature[,1], feature = target_feature[,2])
-  
-  ggplot_distr <- function(x) {
-b <- data.frame(cbind(x=as.numeric(rownames(attr(x, "plot_data"))),
-                      attr(x, "plot_data")))
-d1 <- cbind(b[,c(1,2)], attr(x, "nice_name"))
-d2 <- cbind(b[,c(1,3)], "Probability")
-colnames(d1) <- c("x", "y", "panel")
-colnames(d2) <- c("x", "y", "panel")
-d <- rbind(d1, d2)
-p <- ggplot(data = d, mapping = aes(x = x, y = y)) +
-  facet_grid(panel~., scale="free") +
-  geom_freqpoly(data= d2, aes(color=y), stat = "identity") +
-  scale_fill_brewer(palette = "Set1") +
-  geom_point(data=d1, aes(size=y), stat = "identity") +
-  guides(color = "none") +
-  guides(size = "none") +
-  xlab("Number of cases with feature=1 and target=1") + 
-  ylab("") +
-  my_theme
-p
-  }
-  
-  ggplot_distr(tmp)
-  @
-}
-\end{columns}
-\end{block}
-\vfill
-
-\begin{block}{Simulation scheme - genomics}
-
-\begin{enumerate}[1.]
-\item Random 4000 sequences (20 nucleotides each). The half of the sequences has label 0.
-\item Choose a single position between 3 and 18 (to avoid border cases).
-\item Resample nucleotides at chosen position. The dominant nucleotide has probability of occurrence $p_d = 0.25$. Other nucleotides have probability of occurrence $p_o = (1 - p_d)/3  $. 
-\item Perform QuiPT (Information Gain as test statistic) and choose significant features (with p-value $< 0.001$).
-\item Iterate steps 1-4 over other values of $p_d$ - 0.38, 0.51, 0.65, 0.78, 0.91.
-\item Repeat steps 1-5 200 times.
-\end{enumerate}
-    
-\end{block}
-\vfill
-
-\begin{block}{Power and False discoveries}
-    \centering
-\scalebox{0.9}{  
-<<echo = FALSE,message=FALSE,fig.align='center', fig.width=15>>=
-load("three_n_power.RData")
-  
-tfres <- function(x, cn = c("1-ngram", "2-gram", "3-gram"),
-                  rn = round(seq(from = 0.25, to = 0.91, length.out = 6), 2)) {
-  colnames(x) <- cn
-  rownames(x) <- rn
-  x <- melt(x)
-  #significant proportion, ngram, value
-  colnames(x) <- c("sig", "ngram", "value")
-  x[["sig"]] <- as.factor(x[["sig"]])
-  x
-}
-
-three_n_power <- three_n_power[sapply(three_n_power, function(i) i[[6]][[3]][2]) > 150]
-
-power <- Reduce("+", lapply(three_n_power, function(single_rep) {
-  #single replication dat
-  sr_dat <- do.call(rbind, lapply(single_rep, unlist))
-  sr_dat[, c(1, 3, 5)]/matrix(rep(c(4, 32, 192), 6), nrow = 6, byrow = TRUE)
-}))/length(three_n_power)
-
-mean_nonan <- function(x) {
-  sum(x[!is.nan(x)])/sum(!is.nan(x))
-  x[is.nan(x)] <- 0
-  mean(x)
-}
-
-fs_dat <- sapply(three_n_power, function(single_rep) {
-  #single replication dat
-  sr_dat <- do.call(rbind, lapply(single_rep, unlist))
-  (sr_dat[, c(2, 4, 6)] - sr_dat[, c(1, 3, 5)])/sr_dat[, c(2, 4, 6)]
-})
-
-fs_mean <- matrix(apply(fs_dat, 1, mean_nonan), nrow = 6)
-
-#no significant features at all
-no_sig <- matrix(apply(fs_dat, 1, function(i)
-  sum(is.nan(i))), nrow = 6)
-
-fs <- data.frame(tfres(fs_mean), 
-                 no_sig = (length(three_n_power) - tfres(no_sig)[["value"]])/length(three_n_power),
-                 power=tfres(power)$value)
-#making signal strength number from range [0,1]
-#fs$sig <- as.factor((as.numeric(fs$sig)-1)/5) 
-
-p <- ggplot(fs, aes(x = ngram, y = sig, fill = power)) + 
-  geom_tile() +
-  scale_fill_continuous(name = "Power",
-                        high = "#00CC00", low =  "#CCFFCC") +
-  geom_point(aes(x = ngram, y = sig, size = value)) +
-  scale_size_continuous("False significant \nfeature frequency") +
-  ylab(expression(paste("Signal strength - ", p[d]))) + xlab("n-gram size") +
-  my_theme
-p + geom_abline(intercept=1.5, slope=0.0, color="#666666", size=5) 
-
-
-@
-}
-
-    
-    \end{block}
-    \vfill
 
 
 
 \begin{block}{Summary and funding}
-The n-gram analysis creates versatile classifiers able to extract more universal decision rules (e.g. \textit{signalHsmm}, which is able to also predict signal peptides in atypical organisms) or better detect specific proteins. Nonetheless, despite computational quickness provided by the QuiPT method, curse of dimensionality limits n-gram methods to the analysis of shorter sequences.
+The \textbf{biogram} package streamlines n-gram analysis by providing an integrated workflow containing data storage (sparse matrix representation) data managment (reduction of alphabets) and feature filtering (QuiPT). 
+
+\bigskip
+\textbf{biogram} is avaible on CRAN: \url{http://cran.r-project.org/package=biogram}.
 
 \bigskip
 
-Our software is avaible as web-servers:
+\textbf{biogram}-based software is avaible as web-servers:
 
 \begin{enumerate}
 
@@ -415,18 +375,12 @@ Our software is avaible as web-servers:
 
 \bigskip
 
-This research was partially funded by the KNOW Consortium and National Science Center (2015/17/N/NZ2/01845).
+\small This research was partially funded by the National Science Center (2015/17/N/NZ2/01845) and University of Wrocław (6/MN/WB/15).
 
 \end{block}
 \vfill
 
- \begin{block}{Bibliography}
-  \tiny{
-  \bibliographystyle{apalike}
-  \bibliography{references}
-  }
-  \end{block}
-  \vfill  
+
 
 
 }
